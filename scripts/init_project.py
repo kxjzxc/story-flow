@@ -17,8 +17,9 @@ SKILL_FILES = (
     Path("SKILL.md"),
     Path("agents") / "openai.yaml",
     Path("assets") / "project-template" / "STORYFLOW.md",
-    Path("assets") / "project-template" / "setting" / "index.md",
+    Path("assets") / "project-template" / "graph" / "index.md",
     Path("assets") / "project-template" / "draft" / "index.md",
+    Path("assets") / "project-template" / "ideas" / "index.md",
     Path("scripts") / "init_project.py",
     Path("scripts") / "log_conversation.py",
 )
@@ -98,11 +99,14 @@ def initialize(
 
     sources = {
         project / "STORYFLOW.md": render_manifest(title),
-        project / "setting" / "index.md": (
-            TEMPLATE_ROOT / "setting" / "index.md"
-        ).read_text(encoding="utf-8"),
         project / "draft" / "index.md": (
             TEMPLATE_ROOT / "draft" / "index.md"
+        ).read_text(encoding="utf-8"),
+        project / "ideas" / "index.md": (
+            TEMPLATE_ROOT / "ideas" / "index.md"
+        ).read_text(encoding="utf-8"),
+        project / "graph" / "index.md": (
+            TEMPLATE_ROOT / "graph" / "index.md"
         ).read_text(encoding="utf-8"),
     }
 

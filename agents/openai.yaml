@@ -1,5 +1,4 @@
 interface:
   display_name: "StoryFlow"
-  short_description: "Search stories, review chapters, and archive conversations"
+  short_description: "Search stories, review chapters, extract graph facts, and keep session summaries"
   default_prompt: "Use $story-flow to inspect this story project and answer with cited Markdown sources."
-

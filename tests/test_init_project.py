@@ -12,7 +12,7 @@ SCRIPT = ROOT / "scripts" / "init_project.py"
 
 
 class InitProjectTests(unittest.TestCase):
-    def test_initializes_minimal_project(self) -> None:
+    def test_initializes_daoverse_project(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             project = Path(temp_dir) / "novel"
             result = subprocess.run(
@@ -24,29 +24,31 @@ class InitProjectTests(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue((project / "STORYFLOW.md").is_file())
-            self.assertTrue((project / "setting" / "index.md").is_file())
+            self.assertTrue((project / "ideas" / "index.md").is_file())
             self.assertTrue((project / "draft" / "index.md").is_file())
+            self.assertTrue((project / "graph" / "index.md").is_file())
+            self.assertFalse((project / "setting").exists())
             self.assertTrue((project / "_storyflow" / "conversations").is_dir())
-            self.assertTrue((project / ".codex" / "skills" / "story-flow" / "SKILL.md").is_file())
             self.assertTrue(
                 (
                     project
                     / ".codex"
                     / "skills"
                     / "story-flow"
-                    / "scripts"
-                    / "log_conversation.py"
+                    / "SKILL.md"
                 ).is_file()
             )
             manifest = (project / "STORYFLOW.md").read_text(encoding="utf-8")
             self.assertIn('title: "Test Story"', manifest)
+            self.assertIn("idea_roots:", manifest)
+            self.assertIn("graph_index:", manifest)
 
     def test_preserves_existing_files(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             project = Path(temp_dir) / "novel"
-            setting = project / "setting" / "index.md"
-            setting.parent.mkdir(parents=True)
-            setting.write_text("# Existing\n", encoding="utf-8")
+            ideas = project / "ideas" / "index.md"
+            ideas.parent.mkdir(parents=True)
+            ideas.write_text("# Existing\n", encoding="utf-8")
 
             result = subprocess.run(
                 [sys.executable, str(SCRIPT), str(project)],
@@ -56,7 +58,7 @@ class InitProjectTests(unittest.TestCase):
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(setting.read_text(encoding="utf-8"), "# Existing\n")
+            self.assertEqual(ideas.read_text(encoding="utf-8"), "# Existing\n")
             self.assertIn("preserved:", result.stdout)
 
     def test_can_skip_local_skill_install(self) -> None:
