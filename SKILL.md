@@ -13,13 +13,16 @@ analyzing them.
 
 daoverse keeps four kinds of data:
 
-- `idea/` — possibility facts maintained by the author; not canon.
-- `draft/` — narrative canon maintained by the author.
-- `conversation/` — rolling session summaries of creative discussions maintained by the AI;
+- `idea` — possibility facts maintained by the author; not canon.
+- `draft` — narrative canon maintained by the author.
+- `conversation` — rolling session summaries of creative discussions maintained by the AI;
   not canon.
-- `graph/` — structured world canon: events, entities, anchors, and relations with
+- `graph` — structured world canon: events, entities, anchors, and relations with
   provenance. AI extracts candidates; the user performs Semantic Review; AI applies approved
   facts; the user performs Text Review on the Git diff before merge.
+
+These are data type names, not directory paths. Ideas live under `ideas/`, conversations
+under `_storyflow/conversations/`, and `draft`/`graph` types live under `draft/`/`graph/`.
 
 ## Locate the project
 

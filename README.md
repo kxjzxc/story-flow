@@ -11,14 +11,14 @@ StoryFlow 不是小说编辑器，不是笔记软件，也不是 AI 写作产品
 
 ## 数据模型
 
-四种数据：
+四种数据类型（类型名不是目录名，实际目录见下方“项目结构”）：
 
 | 类型 | 维护者 | 含义 | Canon |
 | --- | --- | --- | --- |
-| `idea/` | 人 | 可能性事实 | 否 |
-| `draft/` | 人 | 正文事实 | 是 |
-| `conversation/` | AI | 创作过程记录（滚动总结） | 否 |
-| `graph/` | AI + 人审核 | 结构化世界事实 | 是 |
+| `idea` | 人 | 可能性事实 | 否 |
+| `draft` | 人 | 正文事实 | 是 |
+| `conversation` | AI | 创作过程记录（滚动总结） | 否 |
+| `graph` | AI + 人审核 | 结构化世界事实 | 是 |
 
 ```text
 idea          → 可能是什么
@@ -29,6 +29,9 @@ graph         → 当前世界是什么
 
 `idea` 不是 Graph 的中间状态，只是 Graph 的一个来源。Graph 通过 `sources` 追溯到
 `draft`、`idea` 或 `conversation`。
+
+类型名与目录名不同：`idea` 数据存放在 `ideas/`，`conversation` 数据存放在
+`_storyflow/conversations/`；`draft` 与 `graph` 的目录名与类型名一致。
 
 ## 项目结构
 
