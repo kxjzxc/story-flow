@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create and append StoryFlow conversation archives without reading their content."""
+"""Create and update StoryFlow session summaries; a session file keeps only a rolling summary."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 import unicodedata
 from datetime import datetime
 from pathlib import Path
@@ -45,12 +46,16 @@ def safe_conversation_dir(project: Path, relative: Path) -> Path:
     return directory
 
 
-def start_session(project: Path, conversation_root: Path, title: str, session_id: str | None) -> Path:
+def start_session(
+    project: Path, conversation_root: Path, title: str, session_id: str | None
+) -> Path:
     directory = safe_conversation_dir(project, conversation_root)
     directory.mkdir(parents=True, exist_ok=True)
     title = validate_single_line(title, "title")
     timestamp = now()
-    identifier = slugify(session_id) if session_id else f"conversation-{timestamp:%Y%m%d-%H%M%S}"
+    identifier = (
+        slugify(session_id) if session_id else f"conversation-{timestamp:%Y%m%d-%H%M%S}"
+    )
     base_name = f"{timestamp:%Y%m%d-%H%M%S}-{slugify(title)}"
     path = directory / f"{base_name}.md"
     suffix = 2
@@ -61,7 +66,7 @@ def start_session(project: Path, conversation_root: Path, title: str, session_id
     document = (
         "---\n"
         "storyflow:\n"
-        "  kind: conversation\n"
+        "  kind: session-summary\n"
         f"  id: {json.dumps(identifier)}\n"
         f"  created_at: {json.dumps(timestamp.isoformat(timespec='seconds'))}\n"
         "  read_policy: explicit-only\n"
@@ -93,25 +98,44 @@ def validate_session(path: Path) -> Path:
     return path
 
 
-def append_block(path: Path, heading: str, content: str) -> None:
+def replace_summary(path: Path, content: str) -> None:
+    """Replace the session body after the title with a fresh summary block."""
     path = validate_session(path)
     timestamp = now().isoformat(timespec="seconds")
-    block = f"\n\n## {heading} - {timestamp}\n\n{content.rstrip()}\n"
-    flags = os.O_WRONLY | os.O_APPEND
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
-    descriptor = os.open(path, flags)
-    with os.fdopen(descriptor, "a", encoding="utf-8", newline="\n") as handle:
-        handle.write(block)
+    text = path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    header_end = None
+    for index, line in enumerate(lines):
+        if line.startswith("# "):
+            header_end = index + 1
+            break
+    if header_end is None:
+        raise ValueError("session file has no title heading")
+    header = "\n".join(lines[:header_end]).rstrip() + "\n"
+    document = header + f"\n## Summary - {timestamp}\n\n{content.rstrip()}\n"
+
+    descriptor, temporary = tempfile.mkstemp(
+        prefix=".session-", suffix=".tmp", dir=path.parent
+    )
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(document)
+        os.replace(temporary, path)
+    except BaseException:
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+        raise
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Write StoryFlow conversation archives; no read command is provided."
+        description="Write StoryFlow session summaries; sessions keep only a rolling summary."
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    start = subparsers.add_parser("start", help="Create a conversation archive")
+    start = subparsers.add_parser("start", help="Create a session summary file")
     start.add_argument("--project", type=Path, required=True)
     start.add_argument(
         "--conversation-root", type=Path, default=DEFAULT_CONVERSATION_ROOT
@@ -119,14 +143,13 @@ def build_parser() -> argparse.ArgumentParser:
     start.add_argument("--title", required=True)
     start.add_argument("--session-id")
 
-    append = subparsers.add_parser("append", help="Append a visible chat message")
-    append.add_argument("--session", type=Path, required=True)
-    append.add_argument("--role", choices=("user", "assistant"), required=True)
-    append.add_argument("--content-file", required=True, help="UTF-8 file or - for stdin")
-
-    summarize = subparsers.add_parser("summarize", help="Append an AI-produced summary")
+    summarize = subparsers.add_parser(
+        "summarize", help="Replace the session summary (re-summarize the previous one)"
+    )
     summarize.add_argument("--session", type=Path, required=True)
-    summarize.add_argument("--content-file", required=True, help="UTF-8 file or - for stdin")
+    summarize.add_argument(
+        "--content-file", required=True, help="UTF-8 file or - for stdin"
+    )
     return parser
 
 
@@ -138,11 +161,8 @@ def main() -> int:
                 args.project, args.conversation_root, args.title, args.session_id
             )
             print(path)
-        elif args.command == "append":
-            heading = "User" if args.role == "user" else "Assistant"
-            append_block(args.session, heading, read_input(args.content_file))
         elif args.command == "summarize":
-            append_block(args.session, "Summary", read_input(args.content_file))
+            replace_summary(args.session, read_input(args.content_file))
     except (OSError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
@@ -151,4 +171,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
