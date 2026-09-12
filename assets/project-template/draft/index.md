@@ -1,7 +1,7 @@
-# Manuscript index
+# 正文索引
 
-Each book is a directory under `draft/` with its own `index.md`.
+每本书位于 `draft/` 下的一个目录中，并拥有自己的 `index.md` 来列出章节。
 
-## Books
+## 书目
 
-<!-- One entry per book: [书名](书名/index.md) -->
+<!-- 每本书一项：[书名](书名/index.md) -->
