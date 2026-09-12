@@ -21,7 +21,6 @@ SKILL_FILES = (
     Path("assets") / "project-template" / "draft" / "index.md",
     Path("assets") / "project-template" / "ideas" / "index.md",
     Path("scripts") / "init_project.py",
-    Path("scripts") / "log_conversation.py",
 )
 
 
@@ -94,8 +93,6 @@ def initialize(
         raise ValueError(f"project path is not a directory: {project}")
 
     project.mkdir(parents=True, exist_ok=True)
-    conversation_dir = project / "_storyflow" / "conversations"
-    conversation_dir.mkdir(parents=True, exist_ok=True)
 
     sources = {
         project / "STORYFLOW.md": render_manifest(title),
