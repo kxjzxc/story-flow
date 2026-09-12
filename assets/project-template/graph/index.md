@@ -1,9 +1,9 @@
-# Graph Index
+# Graph 索引
 
-Node id → file path registry. Maintained mechanically; carries no world facts.
+节点 ID → 文件路径注册表。由工具机械维护，不承载世界事实。
 
-## Events
+## 事件
 
-## Entities
+## 实体
 
-## Anchors
+## 锚点

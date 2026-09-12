@@ -1,7 +1,9 @@
 # Ideas
 
-Temporary inspirations that have not yet been written into the manuscript or confirmed as
-graph canon.
+Ideas 是故事的非 Canon 创作工作区。
 
-Keep one idea per file. Ideas are not canon. When an idea is confirmed, it can be written into
-`draft/` as narrative or, after explicit confirmation, into `graph/` as structured canon.
+这里可以保存灵感、讨论结论、可能的设定、备选方案、未决问题，以及其他未来可能有用的创作素材。用户和 AI 都可以编辑 Ideas。AI 主要负责将创作讨论中的有效结论总结进对应的 Idea，而不是保存原始对话记录。
+
+Ideas 不是 Canon。它们可以作为后续 Graph 或 Draft 变更的来源，但只有经过正常的 Git PR 流程并由作者合入后，相关内容才进入主线 Canon。
+
+每个文件尽量围绕一个连贯主题，并优先更新已有 Idea，避免创建重复内容。

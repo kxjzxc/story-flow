@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Initialize the minimal StoryFlow Markdown project structure."""
+"""初始化最小的 StoryFlow Markdown 项目结构。"""
 
 from __future__ import annotations
 
@@ -21,20 +21,19 @@ SKILL_FILES = (
     Path("assets") / "project-template" / "draft" / "index.md",
     Path("assets") / "project-template" / "ideas" / "index.md",
     Path("scripts") / "init_project.py",
-    Path("scripts") / "log_conversation.py",
 )
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Initialize a StoryFlow project without overwriting existing files."
+        description="初始化 StoryFlow 项目，不覆盖已有文件。"
     )
-    parser.add_argument("project", type=Path, help="Project directory to initialize")
-    parser.add_argument("--title", help="Story title; defaults to the directory name")
+    parser.add_argument("project", type=Path, help="要初始化的项目目录")
+    parser.add_argument("--title", help="故事名称；默认使用项目目录名称")
     parser.add_argument(
         "--no-install-skill",
         action="store_true",
-        help="Only create Markdown project files; do not install the local StoryFlow skill",
+        help="只创建 Markdown 项目文件，不安装本地 StoryFlow Skill",
     )
     return parser.parse_args()
 
@@ -42,9 +41,9 @@ def parse_args() -> argparse.Namespace:
 def validate_title(title: str) -> str:
     title = title.strip()
     if not title:
-        raise ValueError("title must not be empty")
+        raise ValueError("故事名称不能为空")
     if "\n" in title or "\r" in title:
-        raise ValueError("title must be a single line")
+        raise ValueError("故事名称必须为单行文本")
     return title
 
 
@@ -91,11 +90,9 @@ def initialize(
 ) -> tuple[list[Path], list[Path]]:
     project = project.expanduser().resolve()
     if project.exists() and not project.is_dir():
-        raise ValueError(f"project path is not a directory: {project}")
+        raise ValueError(f"项目路径不是目录：{project}")
 
     project.mkdir(parents=True, exist_ok=True)
-    conversation_dir = project / "_storyflow" / "conversations"
-    conversation_dir.mkdir(parents=True, exist_ok=True)
 
     sources = {
         project / "STORYFLOW.md": render_manifest(title),
@@ -123,18 +120,18 @@ def initialize(
 
 def main() -> int:
     args = parse_args()
-    default_title = args.project.expanduser().resolve().name or "Untitled Story"
+    default_title = args.project.expanduser().resolve().name or "未命名故事"
     try:
         title = validate_title(args.title or default_title)
         created, skipped = initialize(args.project, title, not args.no_install_skill)
     except (OSError, ValueError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        print(f"错误：{exc}", file=sys.stderr)
         return 2
 
     for path in created:
-        print(f"created: {path}")
+        print(f"已创建：{path}")
     for path in skipped:
-        print(f"preserved: {path}")
+        print(f"已保留：{path}")
     return 0
 
 

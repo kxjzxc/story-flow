@@ -1,4 +1,4 @@
 interface:
   display_name: "StoryFlow"
-  short_description: "Search stories, review chapters, extract graph facts, and keep session summaries"
-  default_prompt: "Use $story-flow to inspect this story project and answer with cited Markdown sources."
+  short_description: "检索故事、审查章节、维护图谱与整理 Ideas"
+  default_prompt: "使用 $story-flow 检查故事项目，并根据 Markdown 来源给出带证据的回答。"

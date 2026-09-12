@@ -1,307 +1,150 @@
 ---
 name: story-flow
-description: Initialize daoverse StoryFlow projects, retrieve context from ideas, drafts, session summaries, and the world graph, follow wikilinks and backlinks, review chapters across single- or multi-book drafts against graph canon and earlier manuscript, extract graph candidates with provenance, review them at two levels (semantic facts before writing, file changes before merging), capture temporary ideas, maintain structured rolling session summaries, and re-summarize sessions only when explicitly requested. Use for story project setup, story questions, chapter consistency or OOC checks, timeline and continuity analysis, graph extraction, idea capture, and requested conversation summaries.
+description: 初始化 StoryFlow 项目，检索 Ideas、正文和世界图谱，审查章节一致性，提取并维护图谱内容，根据当前主线审查 PR 的世界一致性。用于故事项目初始化、故事讨论、章节一致性与 OOC 检查、时间线分析、图谱提取、Idea 整理以及 PR 审查。
 ---
 
 # StoryFlow
 
-Use Markdown files as the only story source. Retrieve evidence before answering, keep
-session summaries out of normal context, and never modify draft or graph canon while
-analyzing them.
+使用 Markdown 文件作为故事的唯一来源。回答问题前先检索证据。Ideas 是共享的创作工作区：用户和 AI 都可以编辑，但 Ideas 不是 Canon。Draft 和 Graph 属于 Canon，只有经过用户自己的 Git 工作流进入 `main` 后才成为主线 Canon。
 
-## Data model
+## 数据模型
 
-daoverse keeps four kinds of data:
+StoryFlow 有三种数据类型：
 
-- `idea` — possibility facts maintained by the author; not canon.
-- `draft` — narrative canon maintained by the author.
-- `conversation` — rolling session summaries of creative discussions maintained by the AI;
-  not canon.
-- `graph` — structured world canon: events, entities, anchors, and relations with
-  provenance. AI extracts candidates; the user performs Semantic Review; AI applies approved
-  facts; the user performs Text Review on the Git diff before merge.
+- `idea` — 由用户和 AI 共同维护的创作素材；不是 Canon。
+- `draft` — 作者维护的正文 Canon。
+- `graph` — 结构化的世界 Canon，包括事件、实体、锚点和关系。
 
-These are data type names, not directory paths. Ideas live under `ideas/`, conversations
-under `_storyflow/conversations/`, and `draft`/`graph` types live under `draft/`/`graph/`.
-
-## Locate the project
-
-1. Find the nearest `STORYFLOW.md` at or above the working file.
-2. Treat its directory as the project boundary. Do not follow links outside it.
-3. Read the `storyflow` frontmatter for `idea_roots`, `draft_roots`,
-   `draft_index`, `conversation_root`, `graph_root`, and `graph_index`.
-4. Use `ideas`, `draft`, `draft/index.md`, `_storyflow/conversations`,
-   `graph`, and `graph/index.md` when a field is absent.
-5. Exclude the conversation root from every general file listing, search, link expansion,
-   and context-building operation. Read session summaries only when extracting graph
-   candidates, exploring a node, or when the user explicitly asks.
-
-Each book is a directory under a draft root with its own `index.md` listing its chapters; the
-draft root's `index.md` lists the books. A draft root that lists chapters directly instead of
-book directories is a single-book project.
-
-When no manifest exists, ask the user for a project root or offer to initialize one with:
-
-```bash
-python scripts/init_project.py PROJECT_PATH --title "Story title"
-```
-
-The initializer creates the Markdown project files and installs this skill into
-`PROJECT_PATH/.codex/skills/story-flow/` by default. Use `--no-install-skill` only when the
-user asks for a pure Markdown template.
-
-## Enforce access boundaries
-
-- Read idea, draft, and graph files only as required by the active task.
-- Never read session summaries unless the task is graph extraction, node exploration, or the
-  user explicitly asks to inspect or summarize them.
-- Do not interpret requests such as "continue", "use our context", or a story question as
-  permission to read session summaries. Ask if archived context appears necessary.
-- Write automatically only to the configured conversation root.
-- Write to the idea root only when the user asks to save an inspiration.
-- Graph is canon: write graph files only after Semantic Review approves the proposed facts.
-  If a proposed fact conflicts with existing graph canon, surface the conflict and wait for
-  an explicit user decision; never write conflicting facts without it.
-- Text Review of the Git diff is the final gate before merge; the user checks the file
-  changes and the merge scope. Merged content is canon.
-- Never invent graph facts without provenance. Every node and relation must cite its source
-  (a `draft`, `idea`, or `conversation` path).
-- Do not edit draft or its indexes. Produce reports and proposed wording in the response
-  instead.
-- Do not save reports separately unless the user explicitly requests a file.
-
-## Retrieve story context
-
-1. Extract names, aliases, node ids, locations, organizations, events, objects, rules, and
-   distinctive phrases from the request.
-2. Resolve explicit node ids through `graph_index` first: read the node file, expand its
-   `relations` by one hop, then read cited sources when needed.
-3. Search only configured idea and draft roots. Prefer exact title, frontmatter alias, and
-   exact phrase matches before broad keyword matches.
-4. Parse `[[note]]`, `[[note|label]]`, and relative Markdown links from strong matches.
-5. Expand direct links and backlinks by one hop only. Resolve by frontmatter `storyflow.id`,
-   relative path, filename, then alias. Report ambiguous links instead of guessing.
-6. Rank explicit files above index entries, index entries above exact matches, exact matches
-   above linked notes, and linked notes above broad keyword matches.
-7. Answer with paths and headings for factual claims. Separate project evidence from inference.
-
-Do not use embeddings or build a persistent index. Use file listing, text search, links, and
-targeted reads.
-
-## Graph model
-
-- Nodes live under `graph/nodes/{event,entity,anchor}/`, one file per node, as frontmatter
-  plus a readable Markdown body. `graph/index.md` maps ids to paths and is maintained
-  mechanically; it carries no world facts.
-- Ids are stable and never reused: `event_<n>`, `entity_<slug>`, `anchor_<n>`. Every new id
-  is registered in `graph/index.md`.
-- Relations are stored in the `from` node's frontmatter `relations:` list; each relation
-  carries its own `sources`, so node and edge provenance are independent.
-- MVP relation vocabulary: `causes`, `before`, `after`, `contains`, `located_in`, `knows`,
-  `member_of`, `owns`, `requires`, `participates_in`. A new relation type must be proposed to
-  the user with a reason and is usable only after confirmation.
-- Events use `previous`/`next` chains for order; `time.approximate` only sorts within a
-  branch. Graph-internal timelines are world structure and are not the same as Git branches.
-- Anchors are events with `paradox_policy` (default `reject`). Conflicts with anchors always
-  require an explicit user decision.
-
-## Two-level review
-
-Graph changes pass through two separate reviews that answer different questions. They must
-not be collapsed into one step.
-
-### Semantic Review — 人确认事实
-
-The user confirms whether a fact should exist in the world. AI output at this stage is Graph
-Candidates (facts, not files).
-
-Review questions:
-
-- Is the event real? Is the time correct?
-- Does the relation really exist between the two things, and is its direction right?
-- Did the AI misread the source?
-- Does the new information conflict with existing canon?
-
-Nothing is written to `graph/` before Semantic Review approves the facts.
-
-### Text Review (Git Review) — 人审核文件变更
-
-The user reviews whether the AI correctly wrote the approved facts into the repository.
-
-Review questions:
-
-- Is the YAML valid?
-- Are the IDs correct and registered in `graph/index.md`?
-- Is each relation written in the right direction and in the right node?
-- Are the source paths correct?
-- Is `graph/index.md` synced?
-- Did the AI modify files it should not have touched?
-
-Merge into `main` happens only after Text Review; merged content is Canon.
+这些是数据类型名称，不是目录名称。Idea 存放在 `ideas/`，`draft` 和 `graph` 分别存放在 `draft/` 和 `graph/`。
 
 ```text
-AI
- ↓
-Graph Candidates
- ↓
-Semantic Review（人确认事实）
- ↓ approved
-AI 修改 Graph
- ↓
-Git PR
- ↓
-Text Review（人审核文件变更）
- ↓ merge
-Canon
+idea  → 创作过程中正在形成什么
+draft → 作者已经写了什么
+graph → 当前世界是什么
 ```
 
-## Extract graph updates from prose
+Idea 可以是灵感、讨论结论、可能的设定、未决问题、被否定的方案或其他有长期价值的创作素材。用户可以直接编辑 Idea；AI 也可以在对话中整理和总结讨论结论，并写回对应的 Idea。AI 不应保存原始对话，而应优先把值得保留的内容总结成可继续使用的 Idea。
 
-Use this workflow when the user asks to record new draft, idea, or discussion content into
-the graph.
+## 定位项目
 
-1. Read the smallest useful set: the changed draft chapter, relevant idea notes, and session
-   summaries from the relevant period.
-2. Extract events, entities, relations, timeline links, and state changes. Keep exact source
-   paths for every node and relation, in multi-book form such as
-   `draft/<book>/<chapter>.md`.
-3. Use only the relation vocabulary above. For missing relations, follow the new-type
-   process instead of inventing vocabulary.
-4. Check every candidate against `graph/index.md` and existing nodes.
-5. Classify each candidate as `add`, `update`, `conflict`, or `do not record`.
-6. For every `conflict`, present the chapter evidence, the existing canon, and the possible
-   resolutions; require an explicit user decision (Semantic Review) before writing anything.
-7. After Semantic Review approves the facts, write the node/relation files and update
-   `graph/index.md`. Never write unapproved or contradictory content.
-8. Prepare the Git PR for Text Review. The user checks the diff (YAML, ids, relation
-   direction, source paths, index sync, change scope) and handles branch, merge, and push.
+1. 在当前工作文件及其父目录中寻找最近的 `STORYFLOW.md`。
+2. 将该文件所在目录视为项目边界。不要跟随链接访问项目外部内容。
+3. 读取 `storyflow` frontmatter 中的 `idea_roots`、`draft_roots`、`draft_index`、`graph_root` 和 `graph_index`。
+4. 如果某个字段缺失，则分别使用 `ideas`、`draft`、`draft/index.md`、`graph` 和 `graph/index.md`。
+5. 不创建或假设独立的 conversation archive。当前聊天就是创作过程；需要长期保留的结论，应在合适的时候整理进 `ideas/`。
 
-Return this compact structure:
+每本书位于 draft root 下的一个目录中，并拥有自己的 `index.md` 来列出章节；draft root 的 `index.md` 列出各本书。如果 draft root 直接列出章节而不是书目录，则视为单本书项目。
+
+如果不存在 manifest，应向用户询问项目根目录，或提供初始化方式：
+
+```bash
+python scripts/init_project.py PROJECT_PATH --title "故事名称"
+```
+
+初始化脚本会创建 Markdown 项目文件，并默认将本 Skill 安装到 `PROJECT_PATH/.codex/skills/story-flow/`。只有用户明确要求纯 Markdown 模板时，才使用 `--no-install-skill`。
+
+## 访问边界
+
+- 只在当前任务需要时读取 Idea、Draft 和 Graph 文件。
+- Idea 是非 Canon 的工作素材。不得把 Idea 当成已经确定的世界事实。
+- 用户和 AI 都可以编辑 Idea。当用户要求保存、记录或总结讨论结论时，应将其整理进相关 Idea，而不是创建 conversation 记录。
+- Graph 是 Canon。用户明确要求准备 PR 时，AI 可以在 PR 分支上更新 Graph；这些修改在用户合入 `main` 前都不属于主线 Canon。
+- 不得凭空创造 Graph 事实。每个节点和关系都必须通过 provenance 指向 `draft` 或 `idea` 来源。
+- 默认不要编辑 Draft 及其索引。分析 Draft 时应在回复中提供报告或建议文本。
+- AI 绝不能代替用户合并 PR。
+
+## 检索故事上下文
+
+1. 从用户请求中提取姓名、别名、节点 ID、地点、组织、事件、物品、规则和独特短语。
+2. 如果请求中明确给出节点 ID，先通过 `graph_index` 定位，再读取节点文件；沿 `relations` 展开一跳，必要时读取其来源。
+3. 在配置的 Idea 和 Draft 根目录中检索。优先使用准确标题、frontmatter alias 和精确短语，再进行宽泛关键词搜索。
+4. 解析 `[[note]]`、`[[note|label]]` 和相对路径 Markdown 链接。
+5. 对强匹配结果展开直接链接和反向链接一跳。按 frontmatter `storyflow.id`、相对路径、文件名、alias 的顺序解析。链接存在歧义时不要猜测，应明确报告。
+6. 证据优先级：明确指定的文件 > 索引条目 > 精确匹配 > 链接到的笔记 > 宽泛关键词匹配。
+7. 对事实性回答给出相关路径和标题，并区分项目证据与推断。
+
+不要使用 embedding 或建立持久化索引。使用文件列表、文本搜索、链接和定向读取即可。
+
+## Graph 模型
+
+- 节点位于 `graph/nodes/{event,entity,anchor}/`，每个节点一个文件，使用 frontmatter + 可读 Markdown 正文。`graph/index.md` 负责将 ID 映射到文件路径，由工具机械维护，不承载世界事实。
+- ID 稳定且不得复用：`event_<n>`、`entity_<slug>`、`anchor_<n>`。每个新 ID 都必须注册到 `graph/index.md`。
+- 关系存放在起点节点的 frontmatter `relations:` 列表中；每条关系都有独立的 `sources`，因此节点和边的 provenance 可以分别追踪。
+- MVP 关系词汇：`causes`、`before`、`after`、`contains`、`located_in`、`knows`、`member_of`、`owns`、`requires`、`participates_in`。需要新增关系类型时，先向用户说明原因并确认。
+- Event 使用 `previous` / `next` 链表示顺序；`time.approximate` 只用于同一分支内排序。Graph 内部时间线属于世界结构，不等同于 Git 分支。
+- Anchor 是带有 `paradox_policy` 的 Event（默认 `reject`）。PR 中涉及 Anchor 的冲突应明确指出，由用户决定是否接受。
+
+## 根据创作讨论准备 PR
+
+当用户要求根据当前讨论准备或创建 PR 时：
+
+1. 检查相关 Ideas、Graph 节点和正文证据。
+2. 将值得保留的讨论结论、设定想法和未决方向整理进 `ideas/`。不要保存原始对话；优先更新已有 Idea，避免重复创建。
+3. 识别由讨论产生且证据足够的 Graph 更新。
+4. 更新对应 Graph 节点和 `graph/index.md`，并保留指向相关 `idea` 或 `draft` 路径的 provenance。
+5. PR 分支上的 Graph 修改不是最终 Canon。只有用户将 PR 合入 `main` 后，才成为主线 Canon。
+6. 用户要求时创建 Git commit 和 PR。PR 描述应说明概念变化以及重要的一致性注意事项。
+
+不再设置独立的 Semantic Review。PR 本身就是 Review 边界：用户可以检查完整 diff、提出修改意见、让 AI 修改分支，或自己合入。
+
+## 审查 PR 的世界一致性
+
+当用户要求 AI Review 一个 PR 时，必须以 **当前 `main`** 的 Graph 和 Draft 作为基准，而不是只根据 PR 分支本身进行判断。
+
+开始审查前，先确保本地已获得最新的 `origin/main` 基线（例如执行 `git fetch origin main`）。以 `origin/main` 中的 Graph 和 Draft 作为当前 Canon 基线：先读取 `origin/main:graph/index.md`，再按需读取其中相关节点文件；同时读取 `origin/main` 中与变更相关的 Draft 和索引。然后将这些内容与 PR 分支上的拟议变更进行比较。不要把 PR 分支中已经修改过的 Graph 或 Draft 当作审查基线。
+
+检查：
+
+- 是否与现有 Graph Canon 冲突；
+- 是否与正文已经明确建立的事实冲突；
+- 时间线是否一致；
+- Entity 的身份、状态、行为、归属和关系是否合理；
+- Event 的因果关系和前置条件是否成立；
+- 是否符合已经建立的世界规则；
+- 新增 Graph 结构是否忠实反映其 Idea / Draft 来源；
+- 是否引入逻辑矛盾或缺乏来源支持的事实。
+
+将结果区分为：明确矛盾、潜在风险、证据不足。AI Review 只是审查意见，不自动批准、拒绝或合并 PR。
+
+## 审查章节
+
+当用户要求检查指定章节是否存在问题时：
+
+1. 确定目标章节及其所属书目。若用户直接提供正文，则以提供的正文为目标。如果项目有多本书且无法确定所属书目，应询问用户。
+2. 读取该书的索引（`draft/<book>/index.md`，单本书项目则使用 `draft_index`）确定章节顺序。默认只读取目标章节之前的章节。如果索引缺失或不完整，则使用自然文件名顺序，并说明不确定性。
+3. 从目标章节提取实体、关系、知识、地点、物品、伤势、资源和事件。
+4. 搜索相关 Graph 节点、Idea 和前文。对强匹配的 Graph 节点展开一跳关系。
+5. 检查世界规则、人物身份与知识范围、关系、OOC、时间线、移动、地点连续性、物品归属、身体状态、资源、伏笔和因果。与 Graph Canon 冲突属于明确问题，需要作者决定。
+6. 将发现分为“明确问题”“潜在风险”“证据不足”。
+7. 给出目标章节证据以及冲突或支持它的项目证据。不要把纯粹的文风偏好当成一致性问题。
+
+返回紧凑结构：
 
 ```markdown
-# Graph update
-## New nodes
-## Relation updates
-## Conflicts (awaiting decision)
-## Not worth recording
+# 章节审查
+## 摘要
+## 明确问题
+### 问题
+- 严重程度：
+- 章节证据：
+- 项目证据：
+- 原因：
+- 建议处理：
+## 潜在风险
+## 证据不足
 ```
 
-For each actionable item include node id, evidence path, current canon when present, rationale,
-recommended change, and confidence. Omit empty sections.
+空章节不输出。除非用户明确要求，否则不要读取目标章节之后的内容。
 
-The Graph update exists only in the conversation as candidate facts; it is not a repository
-artifact. The PR diff is the Text Review layer (file changes). Keep them separate.
+## 维护 Ideas
 
-## Review a chapter
+当当前对话产生值得长期保留的创作结论时，在用户要求保存、记录、总结或准备 PR 时更新相关 Idea。优先更新已有 Idea，而不是创建重复文件。
 
-Use this workflow when the user asks whether a specified or pasted chapter has problems.
+一个有用的 Idea 总结可以包含：
 
-1. Identify the target chapter and its book. Treat pasted prose as the target when no path is
-   given. If the project has multiple books and the book is ambiguous, ask which book the
-   chapter belongs to.
-2. Read the book's index (`draft/<book>/index.md`, or `draft_index` for a single-book project)
-   to determine chapter order. Read only chapters before the target by default. If the index is
-   missing or incomplete, use natural filename order and disclose the uncertainty.
-3. Extract entities, relationships, knowledge, locations, objects, injuries, resources, and
-   events from the target.
-4. Search relevant graph nodes (via `graph_index`), idea notes, and earlier chapters for those
-   elements. Expand strong graph matches by one relation hop.
-5. Check world rules, character identity and knowledge, relationships, OOC behavior, timeline,
-   travel, location continuity, object ownership, physical state, resources, foreshadowing,
-   and causality. Contradictions with graph canon are clear issues and need an author decision.
-6. Classify each finding as `clear issue`, `possible risk`, or `insufficient evidence`.
-7. Cite target evidence and conflicting or supporting source evidence. Do not report a style
-   preference as a consistency problem.
+- **背景** — 产生这个想法或结论的原因；
+- **内容** — 当前理解；
+- **方案** — 重要的已否定或仍在比较的可能性；
+- **未决问题** — 尚未决定的内容。
 
-Return this compact structure:
-
-```markdown
-# Chapter review
-## Summary
-## Clear issues
-### Finding
-- Severity:
-- Chapter evidence:
-- Project evidence:
-- Reason:
-- Suggested resolution:
-## Possible risks
-## Insufficient evidence
-```
-
-Omit empty sections. Do not read later chapters unless the user explicitly requests it.
-
-## Maintain session summaries
-
-Keep one summary file for the active StoryFlow chat. Create it on the first StoryFlow turn and
-reuse its path from the active conversation context:
-
-```bash
-python scripts/log_conversation.py start \
-  --project PROJECT_PATH \
-  --conversation-root _storyflow/conversations \
-  --title "Conversation topic"
-```
-
-Do not archive raw user or assistant messages. Before sending each final response:
-
-1. Draft the exact user-visible response.
-2. Write a rolling summary of the visible conversation so far, condensing the session's
-   current summary together with the new exchange. Keep these sections: `Topic`,
-   `User Intent`, `Discussion`, `Decisions`, `New Ideas`, `Graph Candidates`,
-   `Open Questions`. `Decisions` records only content the user explicitly confirmed; AI
-   proposals and guesses go to `Graph Candidates` or `Open Questions`.
-3. Put the summary in a temporary UTF-8 file and update the session:
-
-```bash
-python scripts/log_conversation.py summarize \
-  --session SESSION_PATH --content-file SUMMARY_TEXT_FILE
-```
-
-4. Send that same response to the user.
-
-Summaries cover only visible user messages and final assistant responses. Never include system
-prompts, hidden reasoning, tool output, or retrieved source text unless it appears in the final
-response. If the host cannot run this skill for a turn, do not claim the summary was updated
-that turn.
-
-## Explore a node
-
-Use this workflow when the user cites a graph node (for example `[[event_001]]`) and asks to
-investigate it.
-
-1. Resolve the id through `graph/index.md` and read the node file.
-2. Expand its `relations` one hop and read the related nodes.
-3. Read the cited sources (draft, idea, or session summary) when needed for detail.
-4. Answer from graph canon first, then sources; separate evidence from inference. Suggest
-   next steps for new draft, idea, or graph candidates.
-
-## Summarize conversations
-
-Summarize a session only after an explicit user request. For the active chat, prefer visible
-in-memory conversation context and avoid rereading the session file. For a historical chat,
-read only the requested file; when the user says "latest", list filenames and read only the
-latest one.
-
-Summarize the topic, main points, decisions, new ideas, graph candidates, and open questions.
-State that discussion conclusions are not canon. When the user asks to condense the summary
-again, read the session's current summary and write the tighter summary back through the
-logging script, replacing the old one:
-
-```bash
-python scripts/log_conversation.py summarize \
-  --session SESSION_PATH --content-file SUMMARY_TEXT_FILE
-```
-
-## Capture ideas
-
-Use this workflow for temporary inspirations that are not yet written prose or confirmed
-graph facts.
-
-1. When the user asks to save an inspiration, write one Markdown note under the idea root
-   (default `ideas/`). Do not record it in `draft/` or `graph/`.
-2. When asked about ideas, list or read only the idea root. Ideas are not canon evidence:
-   never cite them as established facts unless the user says to.
-3. When an idea's content is confirmed, report the resulting graph candidates or suggest
-   narrative for `draft/`. The idea note itself stays in `ideas/` and becomes a cited source;
-   never move or copy it.
+不要擅自把讨论变成 Canon。如果用户没有要求准备 PR 或其他 Graph 变更，就保持 Graph 不变。
