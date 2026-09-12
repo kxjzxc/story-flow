@@ -28,7 +28,7 @@ class InitProjectTests(unittest.TestCase):
             self.assertTrue((project / "draft" / "index.md").is_file())
             self.assertTrue((project / "graph" / "index.md").is_file())
             self.assertFalse((project / "setting").exists())
-            self.assertTrue((project / "_storyflow" / "conversations").is_dir())
+            self.assertFalse((project / "_storyflow").exists())
             self.assertTrue(
                 (
                     project
@@ -42,6 +42,7 @@ class InitProjectTests(unittest.TestCase):
             self.assertIn('title: "Test Story"', manifest)
             self.assertIn("idea_roots:", manifest)
             self.assertIn("graph_index:", manifest)
+            self.assertNotIn("conversation_root:", manifest)
 
     def test_preserves_existing_files(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
