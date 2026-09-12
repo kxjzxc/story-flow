@@ -11,27 +11,26 @@ StoryFlow 不是小说编辑器，不是笔记软件，也不是 AI 写作产品
 
 ## 数据模型
 
-四种数据类型（类型名不是目录名，实际目录见下方“项目结构”）：
+三种数据类型：
 
 | 类型 | 维护者 | 含义 | Canon |
 | --- | --- | --- | --- |
-| `idea` | 人 | 可能性事实 | 否 |
+| `idea` | 人 + AI | 创作过程中产生、讨论和整理的非 Canon 内容 | 否 |
 | `draft` | 人 | 正文事实 | 是 |
-| `conversation` | AI | 创作过程记录（滚动总结） | 否 |
-| `graph` | AI + 人审核 | 结构化世界事实 | 是 |
+| `graph` | AI + 人 | 结构化世界事实 | 是 |
 
 ```text
-idea          → 可能是什么
-draft         → 作者写了什么
-conversation  → 世界是如何被讨论出来的
-graph         → 当前世界是什么
+idea  → 创作过程中正在形成什么
+ draft → 作者已经写了什么
+ graph → 当前世界是什么
 ```
 
-`idea` 不是 Graph 的中间状态，只是 Graph 的一个来源。Graph 通过 `sources` 追溯到
-`draft`、`idea` 或 `conversation`。
+`idea` 是人和 AI 共同使用的创作工作区，而不是只有“临时灵感”的存储区。用户可以直接
+编辑 Idea；AI 也可以在对话中整理和总结讨论结论，并写回对应 Idea。Idea 中的内容始终
+不是 Canon，但可以作为 Graph 或 Draft 变更的来源。
 
-类型名与目录名不同：`idea` 数据存放在 `ideas/`，`conversation` 数据存放在
-`_storyflow/conversations/`；`draft` 与 `graph` 的目录名与类型名一致。
+AI 不需要把每次对话保存成独立的 `conversation` 文件。对话本身是即时创作过程；值得
+保留的内容由 AI 总结进 `ideas/`。
 
 ## 项目结构
 
@@ -40,6 +39,7 @@ my-story/
   STORYFLOW.md
   ideas/
     index.md
+    ...
   draft/
     index.md          # 书目索引
     <book>/index.md   # 每本书的章节索引（支持多本正文）
@@ -49,39 +49,74 @@ my-story/
       event/
       entity/
       anchor/
-  _storyflow/
-    conversations/    # 滚动会话总结，默认只写不读
 ```
 
-`STORYFLOW.md` 是 schema 2 的项目配置，声明 `idea_roots`、`draft_roots`、
-`draft_index`、`conversation_root`、`graph_root`、`graph_index`。
+`STORYFLOW.md` 是 schema 2 的项目配置，声明 `idea_roots`、`draft_roots`、`draft_index`、
+`graph_root`、`graph_index`。
 
-## 两级 Review
+## 创作与变更流程
 
-Graph 的每次变更经过两级独立审核，问题完全不同，不能合并成一步：
+一次创作对话中，用户可以要求 AI 整理当前讨论并提 PR。AI 负责：
 
-1. **Semantic Review（人确认事实）**：AI 在对话中展示候选事实（Graph update），用户确认
-   事件是否真实、时间是否正确、关系是否成立、AI 是否误读、是否与已有 Canon 冲突。
-   批准前不写 `graph/`。
-2. **Text Review / Git Review（人审核文件变更）**：用户在 PR diff 上检查 YAML、ID、
-   relation 方向、source path、index 同步与改动范围，merge 后才算 Canon。
+1. 将值得保留的讨论结论、设定想法和未决方向整理进 `ideas/`；
+2. 从这些内容以及现有 Canon 中识别应该更新的 Graph 内容；
+3. 直接修改对应的 `ideas/` 和 `graph/` 文件；
+4. 创建 Git commit 和 PR。
+
+用户负责 PR 的最终审查与 merge。AI 不执行 merge。
 
 ```text
-AI → Graph Candidates → Semantic Review（人确认事实）
-    → AI 修改 Graph → Git PR → Text Review（人审核文件变更）→ merge → Canon
+创作对话
+   ↓
+Ideas（人 + AI 共同编辑）
+   ↓
+AI 整理 Ideas / 更新 Graph
+   ↓
+Git PR
+   ↓
+用户 Review
+   ├── 提出意见 → AI 修改 PR
+   └── Merge → Main / Canon
 ```
+
+## AI Review
+
+用户也可以要求 AI Review 一个 PR。此时 AI 的职责不是替用户决定是否合入，而是基于
+`main` 当前的 Graph 和 Draft 判断 PR 新增内容是否合理。
+
+重点检查：
+
+- 是否与现有 Graph Canon 冲突；
+- 是否与正文已经发生的事实冲突；
+- 时间线是否成立；
+- Entity 的行为、关系和状态是否符合已有内容；
+- 新增事件是否具有合理的因果关系；
+- 是否存在明显的逻辑漏洞。
+
+AI Review 的结果只是审查意见。最终是否修改、接受或 merge，由用户决定。
+
+## Graph 模型
+
+Graph 是当前世界的结构化 Canon：
+
+- `event` — 世界中发生的事情；
+- `entity` — 持续存在的角色、组织、地点、物品或其他对象；
+- `anchor` — 对世界演化具有强约束的事件或状态；
+- `relation` — 节点之间的结构化关系。
+
+每个 Node 和 Relation 都必须带 provenance，指向产生该内容的 `draft` 或 `idea`。Git
+记录 Canon 如何随 PR 演化。
 
 ## 支持的工作流
 
 - **章节审查**：对照 graph canon、idea 与前文检查时间线、人物知识、OOC、地点、归属、
-  因果等一致性问题。
-- **Graph 提取**：从 `draft`、`idea`、`conversation` 提取事件、实体、关系与时间线，
-  每个 Node 和 Relation 都必须带 provenance；冲突内容必须先经用户决策。
+  因果等一致性。
+- **Graph 提取**：从 `draft` 和 `idea` 提取事件、实体、关系与时间线，每个 Node 和
+  Relation 都必须带 provenance；冲突内容通过 PR 暴露给用户处理。
 - **节点探索**：从 `[[node_id]]` 出发，经 `graph/index.md` 定位节点、沿关系展开一跳。
-- **想法记录**：临时灵感写入 `ideas/`，未确认前不作为 canon 证据。
-- **会话总结**：每次创作对话维护结构化滚动摘要（Topic / User Intent / Discussion /
-  Decisions / New Ideas / Graph Candidates / Open Questions）；Decisions 只收用户明确
-  确认的内容。
+- **想法整理**：人可以直接编辑 `ideas/`；AI 可以根据创作对话总结、合并和整理 Idea。
+- **PR Review**：AI 根据 main 的 Graph 和 Draft 检查新增内容是否符合现有世界逻辑；用户
+  负责最终审查和 merge。
 
 ## 初始化项目
 
@@ -92,37 +127,17 @@ AI → Graph Candidates → Semantic Review（人确认事实）
 脚本只创建缺失文件，不覆盖已有内容；默认把本 Skill 安装到项目的
 `.codex/skills/story-flow/`。加 `--no-install-skill` 只生成 Markdown 结构。
 
-## 对话记录
-
-创建会话：
-
-```bash
-./scripts/log_conversation.py start \
-  --project /path/to/my-story \
-  --conversation-root _storyflow/conversations \
-  --title "讨论第一章问题"
-```
-
-更新滚动总结（每次调用都会替换旧的总结，即“总结再总结”）：
-
-```bash
-./scripts/log_conversation.py summarize \
-  --session /path/to/session.md \
-  --content-file summary.txt
-```
-
-不提供 `append` 与 `read` 子命令：原始消息不落盘，历史也不被默认当成上下文使用。
-
 ## 非目标
 
 StoryFlow 不做：
 
 - Markdown 编辑器、笔记管理、云同步
 - 模型托管、embedding 或语义搜索
-- 自动修改正文或 Canon
-- 自动把 idea 提升为 graph（idea 只是来源）
+- 自动修改正文
+- 自动把 idea 变成 Canon 而不经过 Git PR
+- 代表用户 merge PR
 
-Git 分支、diff、PR 与 merge 由作者负责。
+Git 分支、diff、PR 与 merge 仍由 GitHub 和作者承担最终控制。
 
 ## 验证
 
