@@ -91,6 +91,8 @@ python scripts/init_project.py PROJECT_PATH --title "故事名称"
 
 当用户要求 AI Review 一个 PR 时，必须以 **当前 `main`** 的 Graph 和 Draft 作为基准，而不是只根据 PR 分支本身进行判断。
 
+开始审查前，先确保本地已获得最新的 `origin/main` 基线（例如执行 `git fetch origin main`）。以 `origin/main` 中的 Graph 和 Draft 作为当前 Canon 基线：先读取 `origin/main:graph/index.md`，再按需读取其中相关节点文件；同时读取 `origin/main` 中与变更相关的 Draft 和索引。然后将这些内容与 PR 分支上的拟议变更进行比较。不要把 PR 分支中已经修改过的 Graph 或 Draft 当作审查基线。
+
 检查：
 
 - 是否与现有 Graph Canon 冲突；
