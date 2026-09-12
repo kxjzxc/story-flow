@@ -1,13 +1,9 @@
 # Ideas
 
-Ideas are the non-canon creative workspace for the story.
+Ideas 是故事的非 Canon 创作工作区。
 
-They may contain inspirations, discussion conclusions, possible settings, alternatives, open
-questions, and other material that may be useful later. Both the author and AI may edit them.
-AI should primarily summarize useful conclusions from creative discussions into the relevant Idea
-instead of storing raw conversation records.
+这里可以保存灵感、讨论结论、可能的设定、备选方案、未决问题，以及其他未来可能有用的创作素材。用户和 AI 都可以编辑 Ideas。AI 主要负责将创作讨论中的有效结论总结进对应的 Idea，而不是保存原始对话记录。
 
-Ideas are not canon. They can be used as sources for later Graph or Draft changes, but becoming
-Canon requires the normal Git PR workflow and the author's merge.
+Ideas 不是 Canon。它们可以作为后续 Graph 或 Draft 变更的来源，但只有经过正常的 Git PR 流程并由作者合入后，相关内容才进入主线 Canon。
 
-Keep one coherent topic per file and prefer updating an existing Idea over creating duplicates.
+每个文件尽量围绕一个连贯主题，并优先更新已有 Idea，避免创建重复内容。
