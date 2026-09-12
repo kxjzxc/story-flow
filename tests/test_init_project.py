@@ -60,7 +60,7 @@ class InitProjectTests(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(ideas.read_text(encoding="utf-8"), "# Existing\n")
-            self.assertIn("preserved:", result.stdout)
+            self.assertIn("已保留：", result.stdout)
 
     def test_can_skip_local_skill_install(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
